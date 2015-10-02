@@ -1,0 +1,4 @@
+services:
+    soil_rdf_persistence.service.persistence_service:
+        class: Soil\RdfPersistenceBundle\Service\PersistenceService
+        arguments: [@soil_rdf_processor.sparql_client]
