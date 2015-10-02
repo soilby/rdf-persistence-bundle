@@ -13,6 +13,6 @@
     "require": {
         "php": ">=5.3.3",
         "symfony/symfony": "2.6.*",
-        "easyrdf/easyrdf": "0.9.x-dev"
+        "easyrdf/easyrdf": "dev-master"
     }
 }
