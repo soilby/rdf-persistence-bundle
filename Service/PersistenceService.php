@@ -3,6 +3,7 @@
 namespace Soil\RdfPersistenceBundle\Service;
 use Doctrine\Common\Annotations\AnnotationReader;
 use EasyRdf\Sparql\Client;
+use Psr\Log\LoggerAwareTrait;
 
 /**
  * Created by PhpStorm.
@@ -12,6 +13,7 @@ use EasyRdf\Sparql\Client;
  */
 
 class PersistenceService {
+    use LoggerAwareTrait;
 
     /**
      * @var Client
@@ -26,41 +28,44 @@ class PersistenceService {
 
         $reflection = new \ReflectionClass($entity);
 
-        $props = $reflection->getProperties();
-
-        $annotationReader = new AnnotationReader();
-
-//        $vocab = $annotationReader->getClassAnnotation($reflection, 'Soil\DiscoverBundle\Annotation\Vocab');
-//        if ($vocab) {
-//            $vocab = $vocab->value;
-//        }
-//        else    {
-//            $vocab = 'tal';
-//        }
-
-        $sparql = '';
-
         $originURI = $entity->getOrigin();
         if (!$originURI)    {
             throw new \Exception("Cannot persist entity, because origin URI is not defined");
         }
 
+        $sparql = '';
+
+        $annotationReader = new AnnotationReader();
+
+        $iri = $annotationReader->getClassAnnotation($reflection, 'Soil\DiscoverBundle\Annotation\Iri');
+        if ($iri) {
+            $iri = $iri->value;
+
+            $sparql .= "<$originURI> rdf:type $iri . " . PHP_EOL;
+        }
+
+        $props = $reflection->getProperties();
+
         foreach ($props as $prop) {
-            $matchAnnotation = $annotationReader->getPropertyAnnotation($prop, 'Soil\DiscoverBundle\Annotation\Match');
+            $matchAnnotation = $annotationReader->getPropertyAnnotation($prop, 'Soil\DiscoverBundle\Annotation\Iri');
 
-            if ($matchAnnotation)    {
+            if ($matchAnnotation && $matchAnnotation->persist)    {
                 $match = $matchAnnotation->value;
-
+                $prop->setAccessible(true);
                 $value = $prop->getValue($entity);
 
-                $sparql .= "<$originURI> $match $value";
-
+                $sparql .= "<$originURI> $match <$value> . " . PHP_EOL;
             }
         }
 
         if ($sparql)    {
-            echo $sparql;
-//            return $this->endpoint->insert($sparql);
+            $this->logger->addInfo('Persisting: ');
+            $this->logger->addInfo($sparql);
+
+            $num = $this->endpoint->insert($sparql);
+
+            $this->logger->addInfo('Return: ' . print_r($num, true));
+            return $num;
         }
         else    {
             return null;
